@@ -1,0 +1,33 @@
+# fly.toml app configuration file generated for temporal-ts-worker-fly on 2024-06-17T14:44:32-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'temporal-ts-worker-fly'
+primary_region = 'ewr'
+
+[build]
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 4
+  processes = ['app']
+
+#  [[http_service.checks]]
+#    interval = '10m0s'
+#    timeout = '9m'
+#    grace_period = '10s'
+#    method = 'GET'
+#    path = '/'
+
+[[vm]]
+  memory = '4gb'
+  cpu_kind = 'performance'
+  cpus = 1
+
+[[metrics]]
+  port = 9000
+  path = '/metrics'
