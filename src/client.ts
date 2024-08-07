@@ -2,11 +2,11 @@ import * as Sentry from '@sentry/node';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { spanToTraceHeader, getDynamicSamplingContextFromSpan } from '@sentry/core';
 import { dynamicSamplingContextToSentryBaggageHeader } from '@sentry/utils';
-import { Connection, Client, ScheduleOverlapPolicy } from '@temporalio/client';
+import { Connection, Client } from '@temporalio/client';
 import { example } from './workflows/example/workflow';
-import { customSchedule, type ScheduleRequest } from './workflows/schedules/index';
 import { nanoid } from 'nanoid';
 import { getConnectionOptions, getenv, namespace, taskQueue } from './env';
+import type { ExampleRequest } from './workflows/example/types';
 
 export const sentryDNS = getenv('SENTRY_DNS', '');
 
@@ -43,12 +43,19 @@ async function run() {
   }, async(span) => {
     const traceHeader = spanToTraceHeader(span);
     const dynamicSamplingContext = getDynamicSamplingContextFromSpan(span);
-    const baggageHeader = dynamicSamplingContextToSentryBaggageHeader(dynamicSamplingContext);
+    let baggageHeader = dynamicSamplingContextToSentryBaggageHeader(dynamicSamplingContext);
+    baggageHeader = baggageHeader ? baggageHeader : '';
 
-    await client.workflow.start(example, {
+    const aExampleRequest:ExampleRequest = {
       name,
       traceHeader,
       baggageHeader
+    };
+
+    await client.workflow.start(example, {
+      taskQueue,
+      args: [aExampleRequest],
+      workflowId: `workflow-${nanoid()}`
     });
 
     console.log(`Workflow Fired`);
