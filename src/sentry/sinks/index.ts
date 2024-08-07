@@ -1,9 +1,14 @@
 import * as Sentry from "@sentry/node";
+import { spanToTraceHeader, getDynamicSamplingContextFromSpan } from '@sentry/core';
+import { dynamicSamplingContextToSentryBaggageHeader } from '@sentry/utils';
 import type { InjectedSinks } from "@temporalio/worker";
 import { workflowInfo, type Sinks, type WorkflowInfo } from "@temporalio/workflow";
+import { fn } from "moment";
+import type { SentryTracing } from "../types";
 
 export interface SentrySinks extends Sinks {
   sentry: {
+    continueTrace(): void;
     startWorkflowSpan(): void;
     stopWorkflowSpan(): void;
     captureMessage: typeof Sentry.captureMessage;
@@ -12,6 +17,7 @@ export interface SentrySinks extends Sinks {
 }
 
 export const workflowIdToSentrySpans = new Map<string, Sentry.Span>();
+export const workflowIdToSentryTracing = new Map<string, SentryTracing>();
 
 const setTemporalScope = (scope: Sentry.Scope, workflowInfo: WorkflowInfo) => {
   scope.setTags({
@@ -39,8 +45,53 @@ const setTemporalScope = (scope: Sentry.Scope, workflowInfo: WorkflowInfo) => {
   });
 };
 
+interface ContinueTrace {
+  traceHeader: string,
+  baggageHeader: string,
+  fn?: any
+}
+
 export const sentrySinks = (): InjectedSinks<SentrySinks> => ({
   sentry: {
+    continueTrace: {
+      fn: async(workflowInfo, ...args: ContinueTrace[]) => {
+
+        const trace:ContinueTrace = args[0] ? args[0] : {
+          traceHeader: '',
+          baggageHeader: '',
+        };
+
+        const {traceHeader, baggageHeader} = trace;
+        
+        if(traceHeader && baggageHeader) {
+          await Sentry.continueTrace({
+            sentryTrace: traceHeader,
+            baggage: baggageHeader
+          }, async () => {
+            await Sentry.startSpanManual({
+              name: workflowInfo.workflowType,
+              op: 'workflow.started',
+              attributes: {
+                runId: workflowInfo.runId,
+                taskQueue: workflowInfo.taskQueue,
+                namespace: workflowInfo.namespace,
+                workflowId: workflowInfo.workflowId
+              }
+            }, async(span) => {
+              console.log(`Sentry: Workflow Span Started on ${workflowInfo.workflowId} off the traceHeader ${traceHeader}`);
+              //workflowIdToSentrySpans.set(workflowInfo.workflowId, span);
+              const workflowTraceHeader = spanToTraceHeader(span);
+              const dynamicSamplingContext = getDynamicSamplingContextFromSpan(span);
+              let workflowBaggageHeader = dynamicSamplingContextToSentryBaggageHeader(dynamicSamplingContext);
+              workflowBaggageHeader = workflowBaggageHeader ? workflowBaggageHeader : '';
+
+              workflowIdToSentryTracing.set(workflowInfo.workflowId, {traceHeader: workflowBaggageHeader, baggageHeader: workflowBaggageHeader});
+            });
+          });
+        }
+      },
+      callDuringReplay: true
+    },
     startWorkflowSpan: {
       fn: async (workflowInfo, ...args) => {
           await Sentry.withScope(async (scope) => {
@@ -53,12 +104,14 @@ export const sentrySinks = (): InjectedSinks<SentrySinks> => ({
                 taskQueue: workflowInfo.taskQueue,
                 namespace: workflowInfo.namespace,
                 workflowId: workflowInfo.workflowId
-              }
+              },
+              forceTransaction: true
             }, async(span) => {
-              console.log(`Sentry: Workflow Span Started on ${workflowInfo.workflowId}`);
+              console.log(`Sentry: Workflow Span Started on ${workflowInfo.workflowId} without a Trace Header.`);
               workflowIdToSentrySpans.set(workflowInfo.workflowId, span);
             })
           })
+          
         },
       callDuringReplay: false
     },

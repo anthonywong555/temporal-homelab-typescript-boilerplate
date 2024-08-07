@@ -1,5 +1,5 @@
 export interface GreetRequest {
     name: string;
-    traceHeader: string;
-    baggageHeader: string;
+    traceHeader?: string;
+    baggageHeader?: string;
 }

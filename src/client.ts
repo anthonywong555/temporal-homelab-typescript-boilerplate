@@ -36,7 +36,7 @@ async function run() {
   const name = 'Anthony';
   await Sentry.startSpan({
     name: 'example',
-    op: 'queue.publish',
+    op: 'workflow.schedule',
     attributes: {
       name
     }

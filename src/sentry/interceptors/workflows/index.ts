@@ -1,5 +1,5 @@
-import type { SentrySinks } from "../../sinks";
-import type { Next, WorkflowInboundCallsInterceptor, WorkflowInterceptors } from "@temporalio/workflow";
+import { SentrySinks } from "../../sinks";
+import type { ActivityInput, Next, WorkflowInboundCallsInterceptor, WorkflowOutboundCallsInterceptor, WorkflowInterceptors } from "@temporalio/workflow";
 import { proxySinks, workflowInfo } from "@temporalio/workflow";
 import type { WorkflowExecuteInput } from "@temporalio/workflow/lib/interceptors";
 
@@ -15,9 +15,18 @@ class SentryWorkflowInboundInterceptor
     next: Next<WorkflowInboundCallsInterceptor, "execute">,
   ): Promise<unknown> => {
     try {
-      console.log('input', input);
-      await sentry.startWorkflowSpan();
-      return await next(input);
+      const aRequest = input.args[0];
+
+      // A trace and baggage has been provided.
+      const { traceHeader = '', baggageHeader = '' } = aRequest;
+      if(traceHeader && baggageHeader) {
+        await sentry.continueTrace({traceHeader, baggageHeader});
+        return await next(input);
+      } else {
+        // Start a new space with a trace.
+        await sentry.startWorkflowSpan();
+        return await next(input);
+      }
     } catch (err) {
       sentry.captureException(err);
       throw err;

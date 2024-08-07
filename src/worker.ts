@@ -18,6 +18,7 @@ import * as activities from './sharable-activites/index';
 import * as scheduleWorkflowActivities from './workflows/schedules/activity';
 import { sentrySinks } from "./sentry/sinks";
 import { SentryActivityInboundInterceptor } from "./sentry/interceptors/activites";
+import { SentryTracing } from './sentry/types';
 
 async function withOptionalStatusServer(worker: Worker, port: number | undefined, fn: () => Promise<any>): Promise<void> {
   if (port == null) {
