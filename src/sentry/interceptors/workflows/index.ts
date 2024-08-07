@@ -15,6 +15,7 @@ class SentryWorkflowInboundInterceptor
     next: Next<WorkflowInboundCallsInterceptor, "execute">,
   ): Promise<unknown> => {
     try {
+      console.log('input', input);
       await sentry.startWorkflowSpan();
       return await next(input);
     } catch (err) {

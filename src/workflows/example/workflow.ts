@@ -1,5 +1,7 @@
 import { sentrySinks, type SentrySinks } from '../../sentry/sinks';
 import { proxyActivities, proxySinks, workflowInfo } from '@temporalio/workflow';
+import type { ExampleRequest } from './types';
+import type { GreetRequest } from '../../sharable-activites/example/types';
 import type * as activities from '../../sharable-activites/example/activity';
 
 const sinks = proxySinks<SentrySinks>();
@@ -11,14 +13,16 @@ const { greet } = proxyActivities<typeof activities>({
   }
 });
 
-export async function example(name: string): Promise<string> {
-  //sinks.sentry.startWorkflowSpan();
+export async function example(aRequest: ExampleRequest): Promise<string> {
+  const {name, traceHeader, baggageHeader} = aRequest;
   const greets = [];
   for(let i = 0; i < 3; i++) {
-    greets.push(greet(name));
+    const aGreetRequest:GreetRequest = {
+      ...aRequest
+    }
+
+    greets.push(greet(aGreetRequest));
   }
-  await Promise.all(greets);
-  const result = await greet(name);
-  //sinks.sentry.stopWorkflowSpan();
-  return result;
+  const results = await Promise.all(greets);
+  return results[0];
 }
