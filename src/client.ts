@@ -48,8 +48,10 @@ async function run() {
 
     const aExampleRequest:ExampleRequest = {
       name,
-      traceHeader,
-      baggageHeader
+      sentryTrace: {
+        traceHeader,
+        baggageHeader,
+      }
     };
 
     await client.workflow.start(example, {

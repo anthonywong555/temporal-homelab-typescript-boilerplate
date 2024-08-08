@@ -1,11 +1,14 @@
-import { sentrySinks, type SentrySinks } from '../../sentry/sinks';
+//import { sentrySinks, type SentrySinks } from '../../sentry/sinks';
 import { proxyActivities, proxySinks, workflowInfo } from '@temporalio/workflow';
 import type { ExampleRequest } from './types';
 import type { GreetRequest } from '../../sharable-activites/example/types';
 import type * as activities from '../../sharable-activites/example/activity';
-import * as SentryActivites from '../../sentry/activites/activites';
+import type * as SentryActivities from '../../sentry/activites';
+import { SentryTrace } from '../../sentry/types';
+import { SentrySinks } from '../../sentry/sinks';
 
-const sinks = proxySinks<SentrySinks>();
+
+const { sentry } = proxySinks<SentrySinks>();
 
 const { greet } = proxyActivities<typeof activities>({
   startToCloseTimeout: '1 minute',
@@ -14,7 +17,7 @@ const { greet } = proxyActivities<typeof activities>({
   }
 });
 
-const { getSentryTracing } = proxyActivities<typeof SentryActivites>({
+const { startWorkflowSpan } = proxyActivities<typeof SentryActivities>({
   startToCloseTimeout: '1 minute',
   retry: {
     maximumAttempts: 3
@@ -22,19 +25,26 @@ const { getSentryTracing } = proxyActivities<typeof SentryActivites>({
 })
 
 export async function example(aRequest: ExampleRequest): Promise<string> {
-  const {name, traceHeader, baggageHeader} = aRequest;
-  const workflowId = workflowInfo().workflowId;
-
-  const trace = await getSentryTracing(workflowId);
-
+  const {name, sentryTrace} = aRequest;
+  const workflowSentryTrace = sentryTrace ? await startWorkflowSpan(sentryTrace, workflowInfo()) : {
+    traceHeader: '',
+    baggageHeader: '',
+    span: null
+  };
+  
   const greets = [];
   for(let i = 0; i < 3; i++) {
     const aGreetRequest:GreetRequest = {
-      ...aRequest
+      ...aRequest,
+      sentryTrace: workflowSentryTrace
     }
 
     greets.push(greet(aGreetRequest));
   }
   const results = await Promise.all(greets);
+
+  console.info('span', workflowSentryTrace.span);
+
+  sentry.stopWorkflowSpan(workflowSentryTrace.span);
   return results[0];
 }

@@ -15,11 +15,10 @@ console.info(`🤖: Node_ENV = ${env}`);
 import http from 'node:http';
 import { NativeConnection, Runtime, Worker} from '@temporalio/worker';
 import * as activities from './sharable-activites/index';
-import * as scheduleWorkflowActivities from './workflows/schedules/activity';
 import { sentrySinks } from "./sentry/sinks";
 import { SentryActivityInboundInterceptor } from "./sentry/interceptors/activites";
-import { SentryTracing } from './sentry/types';
-import * as sentryActivites from './sentry/activites/activites';
+import { SentryTrace } from './sentry/types';
+import * as sentryActivites from './sentry/activites';
 
 async function withOptionalStatusServer(worker: Worker, port: number | undefined, fn: () => Promise<any>): Promise<void> {
   if (port == null) {
@@ -74,8 +73,7 @@ async function run() {
       connection,
       namespace,
       taskQueue,
-      maxConcurrentWorkflowTaskExecutions: 200,
-      activities: {...activities, ...scheduleWorkflowActivities, ...sentryActivites},
+      activities: {...activities, ...sentryActivites},
       ...getWorkflowOptions(),
       ...getSentryWorkerOptions(),
     });

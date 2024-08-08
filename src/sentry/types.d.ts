@@ -1,4 +1,5 @@
-export interface SentryTracing {
+export interface SentryTrace {
     traceHeader: string;
     baggageHeader: string;
+    span?: Sentry.Span
 }

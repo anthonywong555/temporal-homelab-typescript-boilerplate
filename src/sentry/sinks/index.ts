@@ -3,21 +3,21 @@ import { spanToTraceHeader, getDynamicSamplingContextFromSpan } from '@sentry/co
 import { dynamicSamplingContextToSentryBaggageHeader } from '@sentry/utils';
 import type { InjectedSinks } from "@temporalio/worker";
 import { workflowInfo, type Sinks, type WorkflowInfo } from "@temporalio/workflow";
-import { fn } from "moment";
-import type { SentryTracing } from "../types";
+import type { SentryTrace } from "../types";
 
 export interface SentrySinks extends Sinks {
   sentry: {
     continueTrace(): void;
     startWorkflowSpan(): void;
-    stopWorkflowSpan(): void;
+    //stopWorkflowSpan(): void;
+    stopWorkflowSpan(span: Sentry.Span): void;
     captureMessage: typeof Sentry.captureMessage;
     captureException: typeof Sentry.captureException;
   };
 }
 
 export const workflowIdToSentrySpans = new Map<string, Sentry.Span>();
-export const workflowIdToSentryTracing = new Map<string, SentryTracing>();
+export const workflowIdToSentryTracing = new Map<string, SentryTrace>();
 
 const setTemporalScope = (scope: Sentry.Scope, workflowInfo: WorkflowInfo) => {
   scope.setTags({
@@ -85,7 +85,7 @@ export const sentrySinks = (): InjectedSinks<SentrySinks> => ({
               let workflowBaggageHeader = dynamicSamplingContextToSentryBaggageHeader(dynamicSamplingContext);
               workflowBaggageHeader = workflowBaggageHeader ? workflowBaggageHeader : '';
 
-              workflowIdToSentryTracing.set(workflowInfo.workflowId, {traceHeader: workflowBaggageHeader, baggageHeader: workflowBaggageHeader});
+              workflowIdToSentryTracing.set(workflowInfo.workflowId, {traceHeader: workflowBaggageHeader, baggageHeader: workflowBaggageHeader, span});
             });
           });
         }
@@ -117,12 +117,20 @@ export const sentrySinks = (): InjectedSinks<SentrySinks> => ({
     },
     stopWorkflowSpan: {
       fn: async(workflowInfo, ...args) => {
+        console.info('args', args);
+        const span = args[0];
+
+        if(span) {
+          // End Span
+        }
+        /*
         const span = workflowIdToSentrySpans.get(workflowInfo.workflowId);
         
         if(span) {
           span.end();
           console.log(`Sentry: Workflow Span Ended on ${workflowInfo.workflowId}`);
         }
+        */
       },
       callDuringReplay: false
     },

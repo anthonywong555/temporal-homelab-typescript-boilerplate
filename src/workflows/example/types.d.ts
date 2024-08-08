@@ -1,5 +1,6 @@
+import type { SentryTrace } from "../../sentry/types";
+
 export interface ExampleRequest {
     name: string;
-    traceHeader: string;
-    baggageHeader: string;
+    sentryTrace?: SentryTrace
 }
