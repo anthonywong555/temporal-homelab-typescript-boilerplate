@@ -19,6 +19,7 @@ import * as scheduleWorkflowActivities from './workflows/schedules/activity';
 import { sentrySinks } from "./sentry/sinks";
 import { SentryActivityInboundInterceptor } from "./sentry/interceptors/activites";
 import { SentryTracing } from './sentry/types';
+import * as sentryActivites from './sentry/activites/activites';
 
 async function withOptionalStatusServer(worker: Worker, port: number | undefined, fn: () => Promise<any>): Promise<void> {
   if (port == null) {
@@ -74,7 +75,7 @@ async function run() {
       namespace,
       taskQueue,
       maxConcurrentWorkflowTaskExecutions: 200,
-      activities: {...activities, ...scheduleWorkflowActivities},
+      activities: {...activities, ...scheduleWorkflowActivities, ...sentryActivites},
       ...getWorkflowOptions(),
       ...getSentryWorkerOptions(),
     });

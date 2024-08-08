@@ -16,3 +16,9 @@ npm run workflow
 The workflow should complete with the hello result. If you alter the workflow or the activity to raise an ApplicationError instead, it should appear in Sentry.
 
 Shoutout to @TimDiekmann for bulding out for Hash.
+
+### Notes
+
+> Why do you have an activity to create the span workflow vs doing in the workflow interceptor?
+
+Creating the span, within the workflow interceptor, was my first apporach. I realize if I wanted to do distributed tracing / have the activity fall under the workflow span, I need to pass around the trace and baggage header as part of the activity call.

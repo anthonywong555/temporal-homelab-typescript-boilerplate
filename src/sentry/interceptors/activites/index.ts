@@ -15,8 +15,13 @@ export class SentryActivityInboundInterceptor implements ActivityInboundCallsInt
     //console.log(`Activityinput`, input);
     // Check to see if there's any traceHeader && baggageHeader
 
-    const test:any = input.args[0];
-    const {traceHeader = '', baggageHeader = ''} = test;
+    const activityRequest:any = input.args[0];
+
+    if(!activityRequest) {
+      return await(input);
+    }
+ 
+    const {traceHeader = '', baggageHeader = ''} = activityRequest;
 
     if(traceHeader && baggageHeader) {
       await Sentry.continueTrace({
