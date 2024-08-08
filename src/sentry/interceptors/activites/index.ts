@@ -1,10 +1,8 @@
 import * as Sentry from "@sentry/node";
 import type { Context } from "@temporalio/activity";
-import type { ActivityInboundCallsInterceptor, ActivityOutboundCallsInterceptor } from "@temporalio/worker";
-import type { ActivityExecuteInput, GetLogAttributesInput } from "@temporalio/worker/src/interceptors";
+import type { ActivityInboundCallsInterceptor } from "@temporalio/worker";
+import type { ActivityExecuteInput } from "@temporalio/worker/src/interceptors";
 import type { Next } from "@temporalio/workflow";
-
-import { workflowIdToSentrySpans, type SentrySinks } from '../../sinks/index';
 
 export class SentryActivityInboundInterceptor implements ActivityInboundCallsInterceptor {
   constructor(public readonly context: Context) {
@@ -12,22 +10,27 @@ export class SentryActivityInboundInterceptor implements ActivityInboundCallsInt
   }
 
   execute = async (input: ActivityExecuteInput, next: Next<ActivityInboundCallsInterceptor, "execute">): Promise<unknown> => {
-    //console.log(`Activityinput`, input);
+    //console.(`Activityinput`, input);
     // Check to see if there's any traceHeader && baggageHeader
-
     const activityRequest:any = input.args[0];
 
     if(!activityRequest) {
       return await(input);
     }
- 
-    const {traceHeader = '', baggageHeader = ''} = activityRequest;
 
-    if(traceHeader && baggageHeader) {
+    if(activityRequest) {
+      const {traceHeader = '', baggageHeader = ''} = activityRequest;
+
+      if(!traceHeader || !baggageHeader) {
+        return await (input);
+      }
+
+      // Picking up the last trace
       await Sentry.continueTrace({
         sentryTrace: traceHeader,
         baggage: baggageHeader
       }, async () => {
+        // Starting a Sentry Activity Span
         await Sentry.startSpanManual({
           name: this.context.info.activityType,
           op: 'activity.started',
@@ -52,8 +55,6 @@ export class SentryActivityInboundInterceptor implements ActivityInboundCallsInt
           }
         });
       });
-    } else {
-      return await(input);
     }
 
     /*
