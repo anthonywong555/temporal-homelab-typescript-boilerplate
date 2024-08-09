@@ -10,7 +10,7 @@ export interface SentrySinks extends Sinks {
     continueTrace(): void;
     startWorkflowSpan(): void;
     //stopWorkflowSpan(): void;
-    stopWorkflowSpan(span: Sentry.Span): void;
+    stopWorkflowSpan(span: SentryTrace): void;
     captureMessage: typeof Sentry.captureMessage;
     captureException: typeof Sentry.captureException;
   };
@@ -117,20 +117,20 @@ export const sentrySinks = (): InjectedSinks<SentrySinks> => ({
     },
     stopWorkflowSpan: {
       fn: async(workflowInfo, ...args) => {
-        console.info('args', args);
-        const span = args[0];
+        const sentryTrace = args[0];
+        const {traceHeader, baggageHeader} = sentryTrace;
 
-        if(span) {
+        if(traceHeader && baggageHeader) {
+          console.log('traceHeader', sentryTrace.traceHeader);
+          console.log('baggageHeader', sentryTrace.baggageHeader);
           // End Span
+          await Sentry.continueTrace({
+            sentryTrace: traceHeader,
+            baggage: baggageHeader
+          }, async () => {
+            console.info(`Continue the trace`);
+          });
         }
-        /*
-        const span = workflowIdToSentrySpans.get(workflowInfo.workflowId);
-        
-        if(span) {
-          span.end();
-          console.log(`Sentry: Workflow Span Ended on ${workflowInfo.workflowId}`);
-        }
-        */
       },
       callDuringReplay: false
     },

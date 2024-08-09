@@ -33,18 +33,27 @@ async function run() {
     connection,
     namespace
   });
+
+  const workflowId = `workflow-${nanoid()}`;
+
   const name = 'Anthony';
   await Sentry.startSpan({
     name: 'example',
-    op: 'workflow.schedule',
+    op: 'queue.publish',
     attributes: {
-      name
-    }
+      name,
+      "messaging.message.id": workflowId, // Workflow Id
+      "messaging.destination.name": 'example', // Workflow Type
+      //"messaging.message.body.size": messageBodySize, 
+    },
+    forceTransaction: true
   }, async(span) => {
     const traceHeader = spanToTraceHeader(span);
-    const dynamicSamplingContext = getDynamicSamplingContextFromSpan(span);
-    let baggageHeader = dynamicSamplingContextToSentryBaggageHeader(dynamicSamplingContext);
+    let baggageHeader = Sentry.spanToBaggageHeader(span);
     baggageHeader = baggageHeader ? baggageHeader : '';
+    //const dynamicSamplingContext = getDynamicSamplingContextFromSpan(span);
+    //let baggageHeader = dynamicSamplingContextToSentryBaggageHeader(dynamicSamplingContext);
+    //baggageHeader = baggageHeader ? baggageHeader : '';
 
     const aExampleRequest:ExampleRequest = {
       name,
@@ -57,7 +66,7 @@ async function run() {
     await client.workflow.start(example, {
       taskQueue,
       args: [aExampleRequest],
-      workflowId: `workflow-${nanoid()}`
+      workflowId: workflowId
     });
 
     console.log(`Workflow Fired`);

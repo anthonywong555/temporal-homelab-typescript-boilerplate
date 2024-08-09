@@ -1,7 +1,5 @@
 import * as Sentry from "@sentry/node";
 import * as activity from '@temporalio/activity';
-import { spanToTraceHeader, getDynamicSamplingContextFromSpan } from '@sentry/core';
-import { dynamicSamplingContextToSentryBaggageHeader } from '@sentry/utils';
 import type { SentryTrace } from "../types";
 import type { WorkflowInfo } from "@temporalio/workflow";
 
@@ -10,11 +8,13 @@ export async function startWorkflowSpan(aSentryTrace: SentryTrace, workflowInfo:
         const { traceHeader = '', baggageHeader = '' } = aSentryTrace;
         if(traceHeader && baggageHeader) {
             // Continue Span
+            console.log(`Continue Span`);
             return await Sentry.continueTrace({
                 sentryTrace: traceHeader,
                 baggage: baggageHeader
             }, async () => {
-                return await startWorkflowSpanHelper(workflowInfo);
+                console.log(`Start a new span`);
+                return await startWorkflowSpanHelper(workflowInfo, false);
             });
         }
     }
@@ -24,6 +24,7 @@ export async function startWorkflowSpan(aSentryTrace: SentryTrace, workflowInfo:
 }
 
 async function startWorkflowSpanHelper(workflowInfo: WorkflowInfo, forceTransaction = false): Promise<SentryTrace> {
+    console.log(`forceTransaction`, forceTransaction);
     return await Sentry.startSpanManual({
         name: workflowInfo.workflowType,
         op: 'workflow.started',
@@ -35,9 +36,10 @@ async function startWorkflowSpanHelper(workflowInfo: WorkflowInfo, forceTransact
         },
         forceTransaction
     }, async(span) => {
-        const workflowTraceHeader = spanToTraceHeader(span);
-        const dynamicSamplingContext = getDynamicSamplingContextFromSpan(span);
-        let workflowBaggageHeader = dynamicSamplingContextToSentryBaggageHeader(dynamicSamplingContext);
+        const workflowTraceHeader = Sentry.spanToTraceHeader(span);
+        let workflowBaggageHeader = Sentry.spanToBaggageHeader(span);
+        //const dynamicSamplingContext = getDynamicSamplingContextFromSpan(span);
+        //let workflowBaggageHeader = dynamicSamplingContextToSentryBaggageHeader(dynamicSamplingContext);
         workflowBaggageHeader = workflowBaggageHeader ? workflowBaggageHeader : '';
 
         return { traceHeader: workflowTraceHeader, baggageHeader: workflowBaggageHeader, span };
