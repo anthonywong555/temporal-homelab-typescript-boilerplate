@@ -13,12 +13,31 @@ export async function startWorkflowSpan(aSentryTrace: SentryTrace, workflowInfo:
                 sentryTrace: traceHeader,
                 baggage: baggageHeader
             }, async () => {
-                console.log(`Start a new span`);
-                return await startWorkflowSpanHelper(workflowInfo, false);
+                return await Sentry.startSpan({
+                    name: 'WorkflowExecutionStarted',
+                    op: 'queue.process',
+                    attributes: {
+                        'messaging.message.id': workflowInfo.workflowId,
+                        'messaging.destination.name': workflowInfo.workflowType,
+                        'messaging.message.retry.count': workflowInfo.attempt
+                    },
+                }, async(span) => {
+                    //parent.setStatus({code: 1, message: 'ok' });
+                    const workflowTraceHeader = Sentry.spanToTraceHeader(span);
+                    let workflowBaggageHeader = Sentry.spanToBaggageHeader(span);
+                    //const dynamicSamplingContext = getDynamicSamplingContextFromSpan(span);
+                    //let workflowBaggageHeader = dynamicSamplingContextToSentryBaggageHeader(dynamicSamplingContext);
+                    workflowBaggageHeader = workflowBaggageHeader ? workflowBaggageHeader : '';
+                    
+                    console.info('Returning the object value');
+
+                    return { traceHeader: workflowTraceHeader, baggageHeader: workflowBaggageHeader };
+                });
             });
         }
     }
     
+    console.info('else StartedWorkflowSpanHelper');
     // Create a new Span
     return await startWorkflowSpanHelper(workflowInfo, true);
 }
@@ -26,13 +45,18 @@ export async function startWorkflowSpan(aSentryTrace: SentryTrace, workflowInfo:
 async function startWorkflowSpanHelper(workflowInfo: WorkflowInfo, forceTransaction = false): Promise<SentryTrace> {
     console.log(`forceTransaction`, forceTransaction);
     return await Sentry.startSpanManual({
-        name: workflowInfo.workflowType,
-        op: 'workflow.started',
+        name: 'queue_consumer',
+        op: 'queue.process',
         attributes: {
-            workflowId: workflowInfo.workflowId,
+            /*workflowId: workflowInfo.workflowId,
             runId: workflowInfo.runId,
             taskQueue: workflowInfo.taskQueue,
             namespace: workflowInfo.namespace,
+            */
+            'messaging.message.id': workflowInfo.workflowId,
+            'messaging.destination.name': workflowInfo.workflowType,
+            //'messaging.message.receive.latency': workflowInfo.startTime,
+            'messaging.message.retry.count': workflowInfo.attempt
         },
         forceTransaction
     }, async(span) => {

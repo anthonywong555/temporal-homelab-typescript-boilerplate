@@ -38,7 +38,7 @@ async function run() {
 
   const name = 'Anthony';
   await Sentry.startSpan({
-    name: 'example',
+    name: 'WorkflowExecutionScheduled',
     op: 'queue.publish',
     attributes: {
       name,
@@ -46,7 +46,7 @@ async function run() {
       "messaging.destination.name": 'example', // Workflow Type
       //"messaging.message.body.size": messageBodySize, 
     },
-    forceTransaction: true
+    //forceTransaction: true
   }, async(span) => {
     const traceHeader = spanToTraceHeader(span);
     let baggageHeader = Sentry.spanToBaggageHeader(span);

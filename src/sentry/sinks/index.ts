@@ -2,15 +2,16 @@ import * as Sentry from "@sentry/node";
 import { spanToTraceHeader, getDynamicSamplingContextFromSpan } from '@sentry/core';
 import { dynamicSamplingContextToSentryBaggageHeader } from '@sentry/utils';
 import type { InjectedSinks } from "@temporalio/worker";
-import { workflowInfo, type Sinks, type WorkflowInfo } from "@temporalio/workflow";
+import { ActivityInput, workflowInfo, type Sinks, type WorkflowInfo } from "@temporalio/workflow";
 import type { SentryTrace } from "../types";
 
 export interface SentrySinks extends Sinks {
   sentry: {
-    continueTrace(): void;
+    continueTrace(span: SentryTrace): void;
     startWorkflowSpan(): void;
     //stopWorkflowSpan(): void;
     stopWorkflowSpan(span: SentryTrace): void;
+    startActivityQueueSpan(span: SentryTrace, activityInput: ActivityInput): void;
     captureMessage: typeof Sentry.captureMessage;
     captureException: typeof Sentry.captureException;
   };
@@ -45,30 +46,64 @@ const setTemporalScope = (scope: Sentry.Scope, workflowInfo: WorkflowInfo) => {
   });
 };
 
-interface ContinueTrace {
-  traceHeader: string,
-  baggageHeader: string,
-  fn?: any
-}
-
 export const sentrySinks = (): InjectedSinks<SentrySinks> => ({
   sentry: {
-    continueTrace: {
-      fn: async(workflowInfo, ...args: ContinueTrace[]) => {
+    startActivityQueueSpan: {
+      fn: async(workflowInfo, ...args) => {
+        if(args.length > 0) {
+          const sentryTrace: SentryTrace = args[0];
+          const activityInput: ActivityInput = args[1];
 
-        const trace:ContinueTrace = args[0] ? args[0] : {
+          const {traceHeader, baggageHeader} = sentryTrace;
+
+          await Sentry.continueTrace({
+            sentryTrace: traceHeader,
+            baggage: baggageHeader
+          }, async () => {
+            return await Sentry.startSpan({
+              name: 'workflow_worker_producer'
+            }, async (parent) => {
+              return await Sentry.startSpan(
+                {
+                  name: "ActivityTaskScheduled",
+                  op: "queue.publish",
+                  attributes: {
+                    "messaging.message.id": `${activityInput.seq}`,
+                    "messaging.destination.name": activityInput.activityType,
+                    //"messaging.message.body.size": messageBodySize,
+                  },
+                }, async (span) => {
+                  console.info('Queue Producer Activity');
+                  //parent.setStatus({code: 1, message: 'ok'});
+                });
+            });
+          })
+          }
+        }
+      },
+
+    continueTrace: {
+      fn: async(workflowInfo, ...args: SentryTrace[]) => {
+
+        const sentryTrace:SentryTrace = args[0] ? args[0] : {
           traceHeader: '',
           baggageHeader: '',
         };
 
-        const {traceHeader, baggageHeader} = trace;
+        const {traceHeader, baggageHeader} = sentryTrace;
         
         if(traceHeader && baggageHeader) {
           await Sentry.continueTrace({
             sentryTrace: traceHeader,
             baggage: baggageHeader
           }, async () => {
-            await Sentry.startSpanManual({
+            return await Sentry.startSpan({
+              name: 'workflow_worker_consumer'
+            }, async (parent) => {
+
+            });
+            /*
+            await Sentry.startSpan({
               name: workflowInfo.workflowType,
               op: 'workflow.started',
               attributes: {
@@ -84,9 +119,8 @@ export const sentrySinks = (): InjectedSinks<SentrySinks> => ({
               const dynamicSamplingContext = getDynamicSamplingContextFromSpan(span);
               let workflowBaggageHeader = dynamicSamplingContextToSentryBaggageHeader(dynamicSamplingContext);
               workflowBaggageHeader = workflowBaggageHeader ? workflowBaggageHeader : '';
-
-              workflowIdToSentryTracing.set(workflowInfo.workflowId, {traceHeader: workflowBaggageHeader, baggageHeader: workflowBaggageHeader, span});
             });
+            */
           });
         }
       },
@@ -117,6 +151,7 @@ export const sentrySinks = (): InjectedSinks<SentrySinks> => ({
     },
     stopWorkflowSpan: {
       fn: async(workflowInfo, ...args) => {
+        /*
         const sentryTrace = args[0];
         const {traceHeader, baggageHeader} = sentryTrace;
 
@@ -128,9 +163,15 @@ export const sentrySinks = (): InjectedSinks<SentrySinks> => ({
             sentryTrace: traceHeader,
             baggage: baggageHeader
           }, async () => {
-            console.info(`Continue the trace`);
+            return await Sentry.startSpan({
+              name: 'workflow_worker_consumer'
+            }, async (parent) => {
+              parent.setStatus({code: 1, message: 'ok'});
+              console.info('workflow_worker_consumer ended');
+            } )
           });
         }
+          */
       },
       callDuringReplay: false
     },

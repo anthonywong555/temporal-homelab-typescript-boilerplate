@@ -1,4 +1,4 @@
-import { proxyActivities, proxySinks, workflowInfo } from '@temporalio/workflow';
+import { proxyActivities, proxyLocalActivities, proxySinks, workflowInfo } from '@temporalio/workflow';
 import type { ExampleRequest } from './types';
 import type { GreetRequest } from '../../sharable-activites/example/types';
 import type * as activities from '../../sharable-activites/example/activity';
@@ -14,11 +14,8 @@ const { greet } = proxyActivities<typeof activities>({
   }
 });
 
-const { startWorkflowSpan } = proxyActivities<typeof SentryActivities>({
-  startToCloseTimeout: '1 minute',
-  retry: {
-    maximumAttempts: 3
-  }
+const { startWorkflowSpan } = proxyLocalActivities<typeof SentryActivities>({
+  startToCloseTimeout: '1 minute'
 })
 
 export async function example(aRequest: ExampleRequest): Promise<string> {
