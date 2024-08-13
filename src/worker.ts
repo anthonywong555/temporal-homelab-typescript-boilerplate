@@ -1,5 +1,3 @@
-import { sentryDNS, getSentryWorkerOptions } from './sentry/instrument';
-
 import {
   namespace,
   taskQueue,
@@ -15,10 +13,6 @@ console.info(`🤖: Node_ENV = ${env}`);
 import http from 'node:http';
 import { NativeConnection, Runtime, Worker} from '@temporalio/worker';
 import * as activities from './sharable-activites/index';
-import { sentrySinks } from "./sentry/sinks";
-import { SentryActivityInboundInterceptor } from "./sentry/interceptors/activites";
-import { SentryTrace } from './sentry/types';
-import * as sentryActivites from './sentry/activites';
 
 async function withOptionalStatusServer(worker: Worker, port: number | undefined, fn: () => Promise<any>): Promise<void> {
   if (port == null) {
@@ -73,9 +67,8 @@ async function run() {
       connection,
       namespace,
       taskQueue,
-      activities: {...activities, ...sentryActivites},
+      activities: {...activities},
       ...getWorkflowOptions(),
-      ...getSentryWorkerOptions(),
     });
 
     const statusPort = getenv('TEMPORAL_WORKER_STATUS_HTTP_PORT', '');
