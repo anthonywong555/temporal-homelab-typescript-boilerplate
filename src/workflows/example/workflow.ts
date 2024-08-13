@@ -23,7 +23,6 @@ export async function example(aRequest: ExampleRequest): Promise<string> {
   const workflowSentryTrace = sentryTrace ? await startWorkflowSpan(sentryTrace, workflowInfo()) : {
     traceHeader: '',
     baggageHeader: '',
-    span: null
   };
   
   const greets = [];
@@ -36,6 +35,11 @@ export async function example(aRequest: ExampleRequest): Promise<string> {
     greets.push(greet(aGreetRequest));
   }
   const results = await Promise.all(greets);
+
+  await greet({
+    sentryTrace: workflowSentryTrace,
+    name: "Howdy"
+  });
   
   sentry.stopWorkflowSpan(workflowSentryTrace);
   return results[0];
